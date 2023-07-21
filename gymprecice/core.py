@@ -138,6 +138,8 @@ class Adapter(ABC, gym.Env):
         """
         super().reset(seed=seed, options=options)
 
+        print(f"start --> {self._env_dir}")
+
         logger.debug(f"Reset {self._env_dir} - start")
 
         if self._first_reset is True:
@@ -156,7 +158,7 @@ class Adapter(ABC, gym.Env):
         # (3) couple physics simulation engine and controller via preCICE, and run physics simulation engine one-step forward
         init_data = self._init_precice()
         # (4) receive partial observation from physics simulation engine
-        obs = self._get_observation(init_data, self._read_var_list)
+        obs = self._get_observation(init_data)
 
         logger.debug(f"Reset {self._env_dir} - end")
 
@@ -193,7 +195,7 @@ class Adapter(ABC, gym.Env):
         # (2) complete the previous time-window and run physics simulation engine one-step forward using the mapped controller actions
         read_data = self._advance(write_data)
         # (3) receive the new state (partial observation) from physics simulation engine
-        observation = self._get_observation(read_data, self._read_var_list)
+        observation = self._get_observation(read_data)
         # (4) receive the instantaneous reward signal for controller actions
         reward = self._get_reward()
         # (5) check if physics simulation engine has reached its end-time
@@ -231,27 +233,17 @@ class Adapter(ABC, gym.Env):
         self._controller_mesh = self._controller["mesh_name"]
         self._scalar_variables = scalar_variables
         self._vector_variables = vector_variables
-        read_var_list = self._controller[self._controller_mesh]["read"]
-        write_var_list = self._controller[self._controller_mesh]["write"]
 
-        assert write_var_list == list(
-            {
-                self._controller_config["write_to"][interface]
-                for interface in self._controller_config["write_to"]
-            }
-        )
-        assert read_var_list == list(
-            {
-                self._controller_config["read_from"][interface]
-                for interface in self._controller_config["read_from"]
-            }
-        )
+
 
         # add interface suffix to read and write variables
+        self._read_var_list = []
+
         self._read_var_list = [
             f'{self._controller_config["read_from"][interface]}-{interface}'
             for interface in self._controller_config["read_from"]
         ]
+
         self._write_var_list = [
             f'{self._controller_config["write_to"][interface]}-{interface}'
             for interface in self._controller_config["write_to"]
@@ -327,7 +319,11 @@ class Adapter(ABC, gym.Env):
             self._write_ids[write_var.rpartition("-")[0]] = self._interface.get_data_id(
                 write_var.rpartition("-")[0], self._mesh_id[mesh_name]
             )
+
         if self._interface.is_action_required(action_write_initial_data()):
+            write_data = self._init_data(self._write_var_list)
+            if write_data:
+                self._write(write_data)     ## TODO: assert all write-vars are provided
             self._interface.mark_action_fulfilled(action_write_initial_data())
 
         # (4) start the first time-window by taking an uncontrolled time-step forward
@@ -452,6 +448,9 @@ class Adapter(ABC, gym.Env):
                 )
             else:
                 raise Exception(f"Invalid variable type: {read_var}")
+    
+        for key in read_data.copy().keys():
+            read_data[key.rpartition("-")[0]] = read_data.pop(key)
 
         return read_data
 
@@ -603,7 +602,7 @@ class Adapter(ABC, gym.Env):
 
     @abstractmethod
     def _get_observation(
-        self, read_data: dict = None, read_var_list: List[str] = None
+        self, read_data: dict = None
     ) -> ObsType:
         r"""Receive partial observation information from the the physics simulation engine to be fed into the controller.
 
@@ -625,3 +624,16 @@ class Adapter(ABC, gym.Env):
     def _close_external_resources(self) -> None:
         """Close external resources used by the physics simulation engine."""
         pass
+
+
+    @abstractmethod
+    def _init_data(write_var_list: List[str] = None) -> dict:
+        """Initialise coupling data
+
+        Args:
+            write_var_list (List): list of variables to be written to physics simulation engine via preCICE.
+
+        Returns:
+            dict: a dictionary containing to be written variables  with their initial values.
+        """
+        return {}

@@ -1,5 +1,6 @@
 from os import chdir
 from shutil import rmtree
+from typing import List
 
 import gymnasium as gym
 import numpy as np
@@ -109,6 +110,9 @@ class TestAdapter:
                 pass
 
             def __del__(self):
+                pass
+
+            def _init_data(self, *args) -> dict:
                 pass
 
         return DummyEnv()

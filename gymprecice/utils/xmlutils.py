@@ -88,7 +88,10 @@ def get_episode_end_time(file: str = "precice-config.xml") -> float:
     max_time = None
     for key in solver_interface.keys():
         if key.rpartition(":")[0].lower() == "coupling-scheme":
-            max_time = solver_interface[key]["max-time"]["@value"]
+            if isinstance(solver_interface[key], list):
+                max_time = solver_interface[key][0]["max-time"]["@value"]
+            else:
+                max_time = solver_interface[key]["max-time"]["@value"]
             break
     assert max_time is not None, f"Can't find max-time keyword in {file}"
 
