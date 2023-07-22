@@ -577,13 +577,13 @@ class Adapter(ABC, gym.Env):
 
     def __del__(self):
         """Close all external resources, and if preCICE is still on, gracefully ends the coupling."""
-        self._close_external_resources()
         if self._interface is not None:
             try:
                 self._dummy_episode()
             except Exception as err:
                 logger.error(f"Unsuccessful termination attempt - {err}")
                 raise err
+        self._close_external_resources()
 
     @abstractmethod
     def _get_action(
