@@ -378,37 +378,39 @@ if __name__ == "__main__":
     torch.backends.cudnn.deterministic = args.torch_deterministic
 
     def make_env(options, idx, wrappers=None):
-        # def _make_env():
-        env = RBCEnv(options, idx)
-        if wrappers is not None:
-            if callable(wrappers):
-                env = wrappers(env)
-            elif isinstance(wrappers, Iterable) and all(
-                [callable(w) for w in wrappers]
-            ):
-                for wrapper in wrappers:
-                    env = wrapper(env)
-            else:
-                raise NotImplementedError
-        return env
-        # return _make_env
+        def _make_env():
+            env = RBCEnv(options, idx)
+            if wrappers is not None:
+                if callable(wrappers):
+                    env = wrappers(env)
+                elif isinstance(wrappers, Iterable) and all(
+                    [callable(w) for w in wrappers]
+                ):
+                    for wrapper in wrappers:
+                        env = wrapper(env)
+                else:
+                    raise NotImplementedError
+            return env
+        return _make_env
 
-    # env_fns = []
-    # for idx in range(args.num_envs):
-    #     env_fns.append(
-    #         make_env(
-    #             options=environment_config, idx=idx, wrappers=[gym.wrappers.ClipAction]
-    #         )
-    #     )
+    env_fns = []
+    for idx in range(args.num_envs):
+        env_fns.append(
+            make_env(
+                options=environment_config, idx=idx, wrappers=[gym.wrappers.ClipAction]
+            )
+        )
 
     # env setup
-    # envs = AsyncVectorEnv(
-    #     env_fns=env_fns, context="fork", shared_memory=False, worker=worker_with_lock
-    # )
+    envs = AsyncVectorEnv(
+        env_fns=env_fns, context="fork", shared_memory=False, worker=worker_with_lock
+    )
 
-    envs = make_env(options=environment_config, idx=0)
-    envs.single_observation_space = envs.observation_space
-    envs.single_action_space = envs.action_space
+    # envs = make_env(options=environment_config, idx=0)
+    # envs.single_observation_space = envs.observation_space
+    # envs.single_action_space = envs.action_space
+    # envs.num_envs = args.num_envs
+
 
     assert isinstance(
         envs.single_action_space, gym.spaces.Box
