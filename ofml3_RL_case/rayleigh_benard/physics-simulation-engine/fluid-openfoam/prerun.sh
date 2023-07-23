@@ -15,6 +15,6 @@ set -e
     rm -rf ./preCICE-output/
     rm -rf ./preCICE-*/
 
-    runApplication decomposePar -force
-    runParallel renumberMesh -overwrite
+    # runApplication decomposePar -force
+    # runParallel renumberMesh -overwrite
 )
